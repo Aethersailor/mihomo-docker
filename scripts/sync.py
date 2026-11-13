@@ -104,6 +104,15 @@ def resolve(channel):
             "release_url": release["html_url"], "assets": assets}
 
 
+def recipe_revision():
+    project = Path(__file__).resolve().parents[1]
+    recipe = hashlib.sha256()
+    for name in ("Dockerfile", "LICENSE", ".dockerignore", "scripts/sync.py"):
+        recipe.update(name.encode() + b"\0" + (project / name).read_bytes())
+    recipe.update((project.parent / ".github/workflows/mihomo.yml").read_bytes())
+    return recipe.hexdigest()
+
+
 def fingerprint(plan, builder_revision):
     identity = {"version": plan["version"], "revision": plan["revision"],
                 "builder": builder_revision,
@@ -211,7 +220,7 @@ def build(context, images, plan, identity, builder_revision):
               "org.opencontainers.image.licenses": "GPL-3.0-only",
               "org.opencontainers.image.description": "Official mihomo binaries repacked with amd64 v1/v2/v3",
               "io.github.mihomo-docker.upstream-revision": plan["revision"]}
-    command = ["docker", "buildx", "build", "--platform", ",".join(PLATFORMS),
+    command = ["docker", "buildx", "build", "--pull", "--no-cache", "--platform", ",".join(PLATFORMS),
                "--provenance=false", "--metadata-file", str(context / "build.json"),
                "--annotation", f"index:{FINGERPRINT}={identity}",
                "--annotation", f"index:org.opencontainers.image.version={plan['version']}"]
@@ -256,7 +265,7 @@ def main():
     if args.plan:
         return
     builder_revision = os.environ["GITHUB_SHA"]
-    identity = fingerprint(plan, builder_revision)
+    identity = fingerprint(plan, recipe_revision())
     images = [os.environ["GHCR_IMAGE"], os.environ["DOCKERHUB_IMAGE"]]
     if os.environ.get("FORCE_SYNC") != "true" and up_to_date(images, plan, identity):
         print("All registries and aliases are already current.")
