@@ -109,7 +109,7 @@ def recipe_revision():
     recipe = hashlib.sha256()
     for name in ("Dockerfile", "LICENSE", ".dockerignore", "scripts/sync.py"):
         recipe.update(name.encode() + b"\0" + (project / name).read_bytes())
-    recipe.update((project.parent / ".github/workflows/mihomo.yml").read_bytes())
+    recipe.update((project / ".github/workflows/mihomo.yml").read_bytes())
     return recipe.hexdigest()
 
 
